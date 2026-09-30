@@ -1,7 +1,8 @@
 # Allow the R2 ring's event nodes and uinput to be accessed by group "input".
 # Add your user to the "input" group, or change GROUP below to a dedicated group.
-# (uinput is a misc device, so match its subsystem.)
-KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660"
+# uinput is a misc device; TAG+="uaccess" also grants the active seat user
+# access via a logind ACL (works even without the "input" group).
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", GROUP="input", MODE="0660"
 
 # R2 nodes (touch + consumer control + keyboard).
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="R2*", GROUP="input", MODE="0660"

@@ -42,6 +42,7 @@ coalesces them (`long_quiet_ms`) and fires once.
 - `mapping.yaml` — signal → key bindings
 - `r2-controller.service` — systemd user unit
 - `60-r2-controller.rules` — udev rule for `/dev/uinput` + R2 nodes
+- `uinput.conf` — loads the `uinput` module at boot
 
 ## Requirements
 
@@ -52,19 +53,37 @@ coalesces them (`long_quiet_ms`) and fires once.
 ## Setup
 
 ```bash
-# permissions
+# udev rule (grants /dev/uinput to the input group + active seat via uaccess)
 sudo cp 60-r2-controller.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo udevadm control --reload-rules
+
+# optional: group-based fallback (uaccess already covers the seat user)
 sudo usermod -aG input "$USER"          # re-login or `newgrp input`
-sudo modprobe uinput                    # load now; udev applies the rule
-ls -l /dev/uinput                       # expect: root:input 0660
+
+# load uinput now and on every boot (the udev rule only fires once the
+# uinput module is loaded; without this /dev/uinput stays root:root)
+sudo cp uinput.conf /etc/modules-load.d/uinput.conf
+sudo modprobe uinput
+ls -l /dev/uinput                       # expect: crw-rw----. root input
 ```
 
-Persist `uinput` across reboots:
+Notes:
+- The udev rule is only applied when the `uinput` device is added, i.e. when the
+  module loads. `uinput.conf` makes that happen at boot.
+- `TAG+="uaccess"` gives the active seat user access via a logind ACL, so the
+  systemd user service works even if it doesn't have the `input` group.
+  (`SupplementaryGroups=` does **not** work in `systemd --user` services — it
+  fails with `status=216/GROUP`.)
+
+## Ring connection
+
+Trust the ring so it reconnects automatically:
 
 ```bash
-echo uinput | sudo tee /etc/modules-load.d/uinput.conf
+bluetoothctl trust <MAC>
 ```
+
+The daemon waits for the ring and grabs it whenever it connects.
 
 ## Usage
 

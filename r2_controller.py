@@ -634,35 +634,61 @@ def run_daemon(args):
     emitter = Emitter()
     quiet = config["long_quiet_ms"] / 1000.0
 
-    devices = find_r2_devices()
-    if not devices:
-        print("no R2 device found; is the ring connected?", file=sys.stderr)
-        return 1
-    fds = {dev.fd: (name, dev) for name, dev in devices}
-    print(f"running: grabbed {[n for n, _ in devices]}", file=sys.stderr)
-
     pending_long = None  # {"direction": str, "key": str}
     last_activity = 0.0
-    last_rescan = time.monotonic()
+    devices = []
 
     def fire(key):
         if key:
             emitter.emit(key)
 
+    def rescan():
+        nonlocal devices
+        for _, dev in devices:
+            try:
+                dev.close()
+            except OSError:
+                pass
+        devices = find_r2_devices()
+        if devices:
+            print(f"running: grabbed {[n for n, _ in devices]}", file=sys.stderr)
+        return {dev.fd: (name, dev) for name, dev in devices}
+
+    fds = rescan()
+    if not fds:
+        print("no R2 device found; waiting for the ring...", file=sys.stderr)
+
     while True:
+        if not fds:
+            time.sleep(1.0)
+            fds = rescan()
+            if not fds:
+                continue
+            print("R2 device connected", file=sys.stderr)
+
         now = time.monotonic()
         if pending_long:
             timeout = max(0.0, quiet - (now - last_activity))
         else:
-            timeout = 5.0
-        timeout = min(timeout, 0.2)
+            timeout = 1.0
+        timeout = max(0.0, min(timeout, 0.2))
         r, _, _ = select.select(list(fds), [], [], timeout)
 
+        died = False
         for fd in r:
-            name, dev = fds[fd]
+            entry = fds.get(fd)
+            if entry is None:
+                continue
+            name, dev = entry
             try:
                 events = dev.read()
             except OSError:
+                fds.pop(fd, None)
+                try:
+                    dev.close()
+                except OSError:
+                    pass
+                died = True
                 continue
             for ev in events:
                 if ev.type == ecodes.EV_SYN:
@@ -693,15 +719,10 @@ def run_daemon(args):
             fire(pending_long.get("key"))
             pending_long = None
 
-        if now - last_rescan > 5.0:
-            for _, dev in devices:
-                try:
-                    dev.close()
-                except OSError:
-                    pass
-            devices = find_r2_devices()
-            fds = {dev.fd: (name, dev) for name, dev in devices}
-            last_rescan = now
+        if died:
+            fds = rescan()
+            if not fds:
+                print("R2 device disconnected; waiting...", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
