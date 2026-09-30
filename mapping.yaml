@@ -1,0 +1,52 @@
+tap_travel: 20.0
+short_speed: 3000.0
+flick_speed: 20000.0
+long_quiet_ms: 300
+bindings:
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F1
+  direction: down
+  press: short
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F2
+  direction: down
+  press: long
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F3
+  direction: up
+  press: short
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F4
+  direction: up
+  press: long
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F5
+  direction: right
+  press: short
+- node: R2 Consumer Control
+  source: KEY_VOLUMEDOWN
+  key: ctrl+shift+super+F6
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F7
+  direction: left
+  press: short
+- node: R2 Consumer Control
+  source: KEY_VOLUMEUP
+  key: ctrl+shift+super+F8
+- node: R2
+  kind: swipe
+  key: ctrl+shift+super+F9
+  direction: down
+  press: flick
+- node: R2
+  kind: tap
+  key: ctrl+shift+super+F9
+- node: R2 Consumer Control
+  source: KEY_VIDEO_NEXT
+  key: ctrl+shift+super+F10
