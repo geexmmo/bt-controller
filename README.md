@@ -111,6 +111,12 @@ systemctl --user daemon-reload
 systemctl --user enable --now r2-controller.service
 ```
 
+## Tests
+
+```bash
+python3 -m unittest test_r2_controller -v
+```
+
 ## Sway bindings
 
 Add to `~/.config/sway/config.d/` and `swaymsg reload`:

@@ -173,8 +173,20 @@ class GestureTracker:
         self.tap_travel = tap_travel
         self.flick_speed = flick_speed
         self.active = False
-        self.start = None
-        self.end = None
+        # Per-axis first/last samples. Tracked independently because the ring
+        # may emit a stray sample of the *other* axis at contact start (e.g. an
+        # ABS_MT_POSITION_X right after a horizontal gesture), which must not
+        # corrupt the moving axis.
+        self.first_x = None
+        self.last_x = None
+        self.first_y = None
+        self.last_y = None
+        self.start_time = None
+
+    def _reset(self):
+        self.active = False
+        self.first_x = self.last_x = None
+        self.first_y = self.last_y = None
         self.start_time = None
 
     def feed(self, ev):
@@ -185,39 +197,32 @@ class GestureTracker:
         if ev.code == ecodes.ABS_MT_TRACKING_ID:
             if ev.value >= 0:
                 self.active = True
-                self.start = None
-                self.end = None
+                self.first_x = self.last_x = None
+                self.first_y = self.last_y = None
                 self.start_time = time.monotonic()
             else:
                 result = self._finish()
-                self.active = False
-                self.start = None
-                self.end = None
-                self.start_time = None
+                self._reset()
                 return result
         elif self.active:
             if ev.code == ecodes.ABS_MT_POSITION_X:
-                _, y = self.end if self.end else (None, None)
-                self.end = (ev.value, y)
-                if self.start is None:
-                    self.start = self.end
+                if self.first_x is None:
+                    self.first_x = ev.value
+                self.last_x = ev.value
             elif ev.code == ecodes.ABS_MT_POSITION_Y:
-                x, _ = self.end if self.end else (None, None)
-                self.end = (x, ev.value)
-                if self.start is None:
-                    self.start = self.end
+                if self.first_y is None:
+                    self.first_y = ev.value
+                self.last_y = ev.value
         return None
 
     def _finish(self):
         duration = time.monotonic() - self.start_time if self.start_time else 0.0
-        if self.start is None or self.end is None:
+        if self.first_x is None and self.first_y is None:
             return {"kind": "tap", "dx": 0, "dy": 0, "travel": 0.0,
                     "duration": duration, "speed": 0.0}
 
-        sx, sy = self.start
-        ex, ey = self.end
-        dx = (ex or 0) - (sx or 0)
-        dy = (ey or 0) - (sy or 0)
+        dx = (self.last_x or 0) - (self.first_x or 0)
+        dy = (self.last_y or 0) - (self.first_y or 0)
         travel = (dx * dx + dy * dy) ** 0.5
         speed = travel / duration if duration > 1e-6 else 0.0
         base = {"dx": dx, "dy": dy, "travel": travel,
