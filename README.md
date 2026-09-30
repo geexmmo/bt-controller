@@ -36,6 +36,10 @@ Gestures are classified by travel and speed (see `mapping.yaml`):
 Long presses may be split by the ring into several contacts; the daemon
 coalesces them (`long_quiet_ms`) and fires once.
 
+Held media keys (left/right long press) auto-repeat on the ring itself; the
+daemon suppresses repeats of the same source key within `hold_repeat_ms` so a
+hold fires once, matching the up/down long-press behavior.
+
 ## Files
 
 - `r2_controller.py` — the daemon (`learn`, `run`, `capture` modes)

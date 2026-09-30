@@ -1,52 +1,44 @@
-tap_travel: 20.0
-short_speed: 3000.0
-flick_speed: 20000.0
+# R2 ring controller bindings.
+#
+# Run `python3 r2_controller.py learn` to regenerate. It auto-dedupes identical
+# signals (e.g. b2-short vs right-long) and adds a tap fallback for flicks.
+#
+# Targets are emitted as Ctrl+Shift+Super+F1..F12. The kernel F13..F24 codes
+# alias XF86 media keys in X, so we use a distinctive modifier combo instead.
+# In sway, bind them as: bindsym Ctrl+Shift+Mod4+F1 exec ...
+#
+# Classification is by travel/speed:
+#   tap        travel < tap_travel
+#   flick      speed >= flick_speed   (b1's ultra-fast ~34000 u/s down)
+#   short      speed >= short_speed   (~7000-15000 u/s swipes)
+#   long       otherwise              (~800 u/s drift; coalesced via long_quiet_ms)
+#
+# "direction" is the device coordinate delta (natural-scroll inverted):
+#   physical "up"    -> direction "down"   (Y increases)
+#   physical "down"  -> direction "up"     (Y decreases)
+#   physical "right" -> direction "left"   (X decreases)
+#   physical "left"  -> direction "right"  (X increases)
+
+tap_travel: 20
+short_speed: 3000
+flick_speed: 20000
 long_quiet_ms: 300
+hold_repeat_ms: 400
+
 bindings:
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F1
-  direction: down
-  press: short
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F2
-  direction: down
-  press: long
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F3
-  direction: up
-  press: short
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F4
-  direction: up
-  press: long
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F5
-  direction: right
-  press: short
-- node: R2 Consumer Control
-  source: KEY_VOLUMEDOWN
-  key: ctrl+shift+super+F6
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F7
-  direction: left
-  press: short
-- node: R2 Consumer Control
-  source: KEY_VOLUMEUP
-  key: ctrl+shift+super+F8
-- node: R2
-  kind: swipe
-  key: ctrl+shift+super+F9
-  direction: down
-  press: flick
-- node: R2
-  kind: tap
-  key: ctrl+shift+super+F9
-- node: R2 Consumer Control
-  source: KEY_VIDEO_NEXT
-  key: ctrl+shift+super+F10
+  # direction buttons (short swipe / long slow drift)
+  - {node: "R2", kind: swipe, direction: down,  press: short, key: "ctrl+shift+super+F1"}   # up
+  - {node: "R2", kind: swipe, direction: down,  press: long,  key: "ctrl+shift+super+F2"}   # up
+  - {node: "R2", kind: swipe, direction: up,    press: short, key: "ctrl+shift+super+F3"}   # down
+  - {node: "R2", kind: swipe, direction: up,    press: long,  key: "ctrl+shift+super+F4"}   # down
+  - {node: "R2", kind: swipe, direction: right, press: short, key: "ctrl+shift+super+F5"}   # left
+  - {node: "R2", kind: swipe, direction: left,  press: short, key: "ctrl+shift+super+F7"}   # right
+
+  # b1 short (ultra-fast flick down; tap fallback)
+  - {node: "R2", kind: swipe, direction: down,  press: flick, key: "ctrl+shift+super+F9"}
+  - {node: "R2", kind: tap, key: "ctrl+shift+super+F9"}
+
+  # long presses that arrive as consumer-control media keys
+  - {node: "R2 Consumer Control", source: KEY_VOLUMEDOWN, key: "ctrl+shift+super+F6"}       # left long
+  - {node: "R2 Consumer Control", source: KEY_VOLUMEUP,   key: "ctrl+shift+super+F8"}       # right long / b2 short
+  - {node: "R2 Consumer Control", source: KEY_VIDEO_NEXT, key: "ctrl+shift+super+F10"}      # b2 long

@@ -46,6 +46,10 @@ FLICK_SPEED = 20000.0
 # after the last slow contact before firing the long action.
 LONG_QUIET_MS = 300
 
+# Held media keys auto-repeat. Suppress repeats of the same source key within
+# this window so a hold fires once (matches the touch long-press behavior).
+HOLD_REPEAT_MS = 400
+
 DEFAULT_BUTTONS = ["up", "down", "left", "right", "b1", "b2"]
 
 # Keys emitted for each learned signal, in order. The F13..F24 kernel codes
@@ -252,6 +256,24 @@ class GestureTracker:
 # ---------------------------------------------------------------------------
 
 
+class RepeatSuppressor:
+    """Suppress repeated presses of the same source key within a window.
+
+    Used for held media keys (left/right long press auto-repeat) so a hold
+    fires its action once instead of repeatedly.
+    """
+
+    def __init__(self, window_ms=HOLD_REPEAT_MS):
+        self.window = window_ms / 1000.0
+        self.last = {}
+
+    def allow(self, source, now=None):
+        now = time.monotonic() if now is None else now
+        prev = self.last.get(source)
+        self.last[source] = now  # refresh on every event while held
+        return prev is None or (now - prev) >= self.window
+
+
 class Emitter:
     """Virtual keyboard that emits key combos."""
 
@@ -299,11 +321,12 @@ def load_mapping(path):
     """Return dict with tunables and 'bindings' list."""
     config = {"tap_travel": TAP_TRAVEL, "short_speed": SHORT_SPEED,
               "flick_speed": FLICK_SPEED, "long_quiet_ms": LONG_QUIET_MS,
-              "bindings": []}
+              "hold_repeat_ms": HOLD_REPEAT_MS, "bindings": []}
     if yaml is not None and Path(path).exists():
         with open(path) as fh:
             data = yaml.safe_load(fh) or {}
-        for k in ("tap_travel", "short_speed", "flick_speed", "long_quiet_ms"):
+        for k in ("tap_travel", "short_speed", "flick_speed", "long_quiet_ms",
+                  "hold_repeat_ms"):
             if k in data:
                 config[k] = data[k]
         config["bindings"] = data.get("bindings", []) or []
@@ -608,6 +631,7 @@ def run_learn(args):
         "short_speed": SHORT_SPEED,
         "flick_speed": FLICK_SPEED,
         "long_quiet_ms": LONG_QUIET_MS,
+        "hold_repeat_ms": HOLD_REPEAT_MS,
         "bindings": bindings,
     }
     out_path = Path(args.config)
@@ -638,6 +662,7 @@ def run_daemon(args):
                              config["flick_speed"])
     emitter = Emitter()
     quiet = config["long_quiet_ms"] / 1000.0
+    suppressor = RepeatSuppressor(config["hold_repeat_ms"])
 
     pending_long = None  # {"direction": str, "key": str}
     last_activity = 0.0
@@ -716,8 +741,10 @@ def run_daemon(args):
                     if ev.code == ecodes.BTN_TOUCH:
                         continue
                     keyname = ecodes.KEY.get(ev.code, str(ev.code))
-                    pending_long = None
-                    fire(lookup(config["bindings"], name, "key", None, None, keyname))
+                    if suppressor.allow(keyname):
+                        pending_long = None
+                        fire(lookup(config["bindings"], name, "key",
+                                    None, None, keyname))
 
         now = time.monotonic()
         if pending_long and (now - last_activity) >= quiet:

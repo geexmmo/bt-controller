@@ -102,7 +102,33 @@ class GestureTests(unittest.TestCase):
         self.assertEqual(r["direction"], "down")
 
 
+class SuppressorTests(unittest.TestCase):
+    def test_first_press_allowed(self):
+        s = rc.RepeatSuppressor(400)
+        self.assertTrue(s.allow("KEY_VOLUMEUP", now=0.0))
+
+    def test_repeat_within_window_suppressed(self):
+        s = rc.RepeatSuppressor(400)
+        self.assertTrue(s.allow("KEY_VOLUMEUP", now=0.0))
+        self.assertFalse(s.allow("KEY_VOLUMEUP", now=0.285))
+        self.assertFalse(s.allow("KEY_VOLUMEUP", now=0.570))
+
+    def test_after_window_allowed(self):
+        s = rc.RepeatSuppressor(400)
+        self.assertTrue(s.allow("KEY_VOLUMEUP", now=0.0))
+        self.assertTrue(s.allow("KEY_VOLUMEUP", now=0.5))
+
+    def test_different_sources_independent(self):
+        s = rc.RepeatSuppressor(400)
+        self.assertTrue(s.allow("KEY_VOLUMEUP", now=0.0))
+        self.assertTrue(s.allow("KEY_VOLUMEDOWN", now=0.1))
+
+
 class MappingTests(unittest.TestCase):
+    def test_hold_repeat_config(self):
+        cfg = rc.load_mapping("mapping.yaml")
+        self.assertEqual(cfg["hold_repeat_ms"], 400)
+
     def test_all_targets_resolve(self):
         cfg = rc.load_mapping("mapping.yaml")
         for binding in cfg["bindings"]:
